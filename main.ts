@@ -1,4 +1,6 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
+// 1. 导入我们刚刚创建的 View 类和它的类型标识
+import { RAGView, RAG_VIEW_TYPE } from "./view";
 
 // Remember to rename these classes and interfaces!
 
@@ -16,10 +18,16 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		this.registerView(
+			RAG_VIEW_TYPE,
+			(leaf) => new RAGView(leaf)
+		);
+
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (_evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('brain-circuit', 'Sample Plugin', (_evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('The RAG plugin is under development.');
+			this.activateView();
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -80,6 +88,33 @@ export default class MyPlugin extends Plugin {
 
 	onunload() {
 
+	}
+
+	async activateView() {
+		const { workspace } = this.app;
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(RAG_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			leaf = leaves[0];
+		} else {
+			// 在这里，workspace.getRightLeaf(false) 可能会失败并返回 null
+			// 所以我们需要进行检查
+			const newLeaf = workspace.getRightLeaf(false);
+
+			if (newLeaf) {
+				leaf = newLeaf;
+				await leaf.setViewState({ type: RAG_VIEW_TYPE, active: true });
+			}
+		}
+
+		// 【关键修复】
+		// 在调用 revealLeaf 之前，我们必须检查 leaf 是否为 null。
+		// 这个 if 语句不仅可以防止运行时错误，
+		// 还能告诉 TypeScript 在这个代码块内部，leaf 的类型就是 WorkspaceLeaf，不再是 null。
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
 	}
 
 	async loadSettings() {
